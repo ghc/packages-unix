@@ -59,6 +59,12 @@ where
 import System.Posix.DynamicLinker
 import Foreign.Ptr	( Ptr, nullPtr, FunPtr )
 import Foreign.C.String	( withCString )
+#if __GLASGOW_HASKELL__ > 611
+import System.Posix.Internals ( withFilePath )
+#else
+withFilePath :: FilePath -> (CString -> IO a) -> IO a
+withFilePath = withCString
+#endif
 
 -- abstract handle for dynamically loaded module (EXPORTED)
 --
@@ -72,7 +78,7 @@ unModule (Module adr)  = adr
 
 moduleOpen :: String -> [RTLDFlags] -> IO Module
 moduleOpen file flags = do
-  modPtr <- withCString file $ \ modAddr -> c_dlopen modAddr (packRTLDFlags flags)
+  modPtr <- withFilePath file $ \ modAddr -> c_dlopen modAddr (packRTLDFlags flags)
   if (modPtr == nullPtr)
       then moduleError >>= \ err -> ioError (userError ("dlopen: " ++ err))
       else return $ Module modPtr

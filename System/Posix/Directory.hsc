@@ -39,13 +39,27 @@ import System.Posix.Error
 import System.Posix.Types
 import Foreign
 import Foreign.C
+#if MIN_VERSION_base(4,3,2)
+import System.Posix.Internals (withFilePath, peekFilePath)
+#elif __GLASGOW_HASKELL__ > 611
+import System.Posix.Internals (withFilePath)
+
+peekFilePath :: CString -> IO FilePath
+peekFilePath = peekCString
+#else
+withFilePath :: FilePath -> (CString -> IO a) -> IO a
+withFilePath = withCString
+
+peekFilePath :: CString -> IO FilePath
+peekFilePath = peekCString
+#endif
 
 -- | @createDirectory dir mode@ calls @mkdir@ to 
 --   create a new directory, @dir@, with permissions based on
 --  @mode@.
 createDirectory :: FilePath -> FileMode -> IO ()
 createDirectory name mode =
-  withCString name $ \s -> 
+  withFilePath name $ \s -> 
     throwErrnoPathIfMinus1_ "createDirectory" name (c_mkdir s mode)  
 
 foreign import ccall unsafe "mkdir"
@@ -57,7 +71,7 @@ newtype DirStream = DirStream (Ptr CDir)
 --   directory stream for @dir@.
 openDirStream :: FilePath -> IO DirStream
 openDirStream name =
-  withCString name $ \s -> do
+  withFilePath name $ \s -> do
     dirp <- throwErrnoPathIfNull "openDirStream" name $ c_opendir s
     return (DirStream dirp)
 
@@ -80,7 +94,7 @@ readDirStream (DirStream dirp) =
 		 if (dEnt == nullPtr)
 		    then return []
 		    else do
-	 	     entry <- (d_name dEnt >>= peekCString)
+	 	     entry <- (d_name dEnt >>= peekFilePath)
 		     c_freeDirEnt dEnt
 		     return entry
 	 else do errno <- getErrno
@@ -152,7 +166,7 @@ getWorkingDirectory = do
   where go p bytes = do
     	  p' <- c_getcwd p (fromIntegral bytes)
 	  if p' /= nullPtr 
-	     then do s <- peekCString p'
+	     then do s <- peekFilePath p'
 		     free p'
 		     return s
 	     else do errno <- getErrno
@@ -173,7 +187,7 @@ foreign import ccall unsafe "__hsunix_long_path_size"
 changeWorkingDirectory :: FilePath -> IO ()
 changeWorkingDirectory path =
   modifyIOError (`ioeSetFileName` path) $
-    withCString path $ \s -> 
+    withFilePath path $ \s -> 
        throwErrnoIfMinus1Retry_ "changeWorkingDirectory" (c_chdir s)
 
 foreign import ccall unsafe "chdir"
@@ -182,7 +196,7 @@ foreign import ccall unsafe "chdir"
 removeDirectory :: FilePath -> IO ()
 removeDirectory path =
   modifyIOError (`ioeSetFileName` path) $
-    withCString path $ \s ->
+    withFilePath path $ \s ->
        throwErrnoIfMinus1Retry_ "removeDirectory" (c_rmdir s)
 
 foreign import ccall unsafe "rmdir"
