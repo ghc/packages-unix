@@ -33,7 +33,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Control.Monad	( liftM )
 import Data.Maybe	( fromMaybe )
-#if MIN_VERSION_base(4,3,2)
+#if __GLASGOW_HASKELL__ > 700
 import System.Posix.Internals (withFilePath, peekFilePath)
 #elif __GLASGOW_HASKELL__ > 611
 import System.Posix.Internals (withFilePath)

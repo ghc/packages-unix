@@ -39,7 +39,7 @@ import System.Posix.Error
 import System.Posix.Types
 import Foreign
 import Foreign.C
-#if MIN_VERSION_base(4,3,2)
+#if __GLASGOW_HASKELL__ > 700
 import System.Posix.Internals (withFilePath, peekFilePath)
 #elif __GLASGOW_HASKELL__ > 611
 import System.Posix.Internals (withFilePath)

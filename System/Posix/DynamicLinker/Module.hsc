@@ -58,10 +58,11 @@ where
 
 import System.Posix.DynamicLinker
 import Foreign.Ptr	( Ptr, nullPtr, FunPtr )
-import Foreign.C.String	( withCString )
 #if __GLASGOW_HASKELL__ > 611
 import System.Posix.Internals ( withFilePath )
 #else
+import Foreign.C.String	( withCString )
+
 withFilePath :: FilePath -> (CString -> IO a) -> IO a
 withFilePath = withCString
 #endif

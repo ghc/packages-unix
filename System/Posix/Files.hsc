@@ -93,7 +93,7 @@ import Data.Bits
 import System.Posix.Internals
 import Foreign hiding (unsafePerformIO)
 import Foreign.C
-#if MIN_VERSION_base(4,3,2)
+#if __GLASGOW_HASKELL__ > 700
 import System.Posix.Internals (withFilePath, peekFilePath)
 #elif __GLASGOW_HASKELL__ > 611
 import System.Posix.Internals (withFilePath)
