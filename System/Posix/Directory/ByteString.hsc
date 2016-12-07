@@ -88,28 +88,18 @@ foreign import capi unsafe "HsUnix.h opendir"
 -- | @readDirStream dp@ calls @readdir@ to obtain the
 --   next directory entry (@struct dirent@) for the open directory
 --   stream @dp@, and returns the @d_name@ member of that
---  structure.
-readDirStream :: DirStream -> IO RawFilePath
+--  structure. 'Nothing' is returned upon reaching the end
+--  of the directory.
+readDirStream :: DirStream -> IO (Maybe RawFilePath)
 readDirStream (DirStream dirp) =
-  alloca $ \ptr_dEnt  -> loop ptr_dEnt
- where
-  loop ptr_dEnt = do
-    resetErrno
-    r <- c_readdir dirp ptr_dEnt
-    if (r == 0)
-         then do dEnt <- peek ptr_dEnt
-                 if (dEnt == nullPtr)
-                    then return BC.empty
-                    else do
-                     entry <- (d_name dEnt >>= peekFilePath)
-                     c_freeDirEnt dEnt
-                     return entry
-         else do errno <- getErrno
-                 if (errno == eINTR) then loop ptr_dEnt else do
-                 let (Errno eo) = errno
-                 if (eo == 0)
-                    then return BC.empty
-                    else throwErrno "readDirStream"
+  alloca $ \ptr_dEnt ->
+    do throwErrnoIfMinus1Retry_ "readdir" (c_readdir dirp ptr_dEnt)
+       dEnt <- peek ptr_dEnt
+       if dEnt == nullPtr
+         then return Nothing
+         else do entry <- peekFilePath =<< d_name dEnt
+                 c_freeDirEnt dEnt
+                 return (Just entry)
 
 -- traversing directories
 foreign import ccall unsafe "__hscore_readdir"

@@ -1,5 +1,9 @@
 # Changelog for [`unix` package](http://hackage.haskell.org/package/unix)
 
+## next
+
+  * Change type of `readDirStream` and use `Nothing` to signal end of directory
+
 ## 2.7.2.1  *Sep 2016*
 
   * Don't use `readdir_r` if its deprecated.

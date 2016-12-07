@@ -94,8 +94,9 @@ int __hscore_readdir( DIR *dirPtr, struct dirent **pDirEnt )
     return -1;
   }
 
+  errno = 0;
   *pDirEnt = readdir(dirPtr);
-  if (*pDirEnt == NULL) {
+  if (*pDirEnt == NULL && errno != 0) {
     return -1;
   } else {
     return 0;
