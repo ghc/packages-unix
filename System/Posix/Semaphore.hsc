@@ -4,6 +4,7 @@
 {-# LANGUAGE Trustworthy #-}
 #endif
 {-# LANGUAGE CApiFFI #-}
+{-# LANGUAGE InterruptibleFFI #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  System.Posix.Semaphore
@@ -20,7 +21,7 @@
 
 module System.Posix.Semaphore
     (OpenSemFlags(..), Semaphore(),
-     semOpen, semUnlink, semWait, semTryWait, semThreadWait,
+     semOpen, semUnlink, semWait, semWaitInterruptible, semTryWait, semThreadWait,
      semPost, semGetValue)
     where
 
@@ -77,10 +78,37 @@ semWait (Semaphore fptr) = withForeignPtr fptr semWait'
     where semWait' sem = throwErrnoIfMinus1Retry_ "semWait" $
                          sem_wait sem
 
+-- | Lock the semaphore, blocking until it becomes available.  Since this
+--   is done through a system call, this will block the *entire runtime*,
+--   not just the current thread.  If this is not the behaviour you want,
+--   use semThreadWait instead.
+semWaitInterruptible :: Semaphore -> IO Bool
+semWaitInterruptible (Semaphore fptr) = withForeignPtr fptr semWait'
+    where semWait' sem = do
+                          res <- sem_wait_int sem
+                          if res == 0 then return True
+                                      else do errno <- getErrno
+                                              if errno == eINTR
+                                                then return False
+                                                else throwErrno "semWaitInterrruptible"
+
 -- | Attempt to lock the semaphore without blocking.  Immediately return
 --   False if it is not available.
 semTryWait :: Semaphore -> IO Bool
 semTryWait (Semaphore fptr) = withForeignPtr fptr semTrywait'
+    where semTrywait' sem = do res <- sem_trywait sem
+                               (if res == 0 then return True
+                                else do errno <- getErrno
+                                        (if errno == eINTR
+                                         then semTrywait' sem
+                                         else if errno == eAGAIN
+                                              then return False
+                                              else throwErrno "semTrywait"))
+
+-- | Attempt to lock the semaphore without blocking.  Immediately return
+--   False if it is not available.
+semTryWait_ :: Semaphore -> IO Bool
+semTryWait_ (Semaphore fptr) = withForeignPtr fptr semTrywait'
     where semTrywait' sem = do res <- sem_trywait sem
                                (if res == 0 then return True
                                 else do errno <- getErrno
@@ -121,6 +149,8 @@ foreign import capi safe "semaphore.h sem_close"
         sem_close :: Ptr () -> IO CInt
 foreign import capi safe "semaphore.h sem_unlink"
         sem_unlink :: CString -> IO CInt
+foreign import capi interruptible "semaphore.h sem_wait"
+        sem_wait_int :: Ptr () -> IO CInt
 
 foreign import capi safe "semaphore.h sem_wait"
         sem_wait :: Ptr () -> IO CInt
